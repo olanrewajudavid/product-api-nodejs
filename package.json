@@ -1,0 +1,20 @@
+{
+  "name": "nodejs-service-oriented-rest-api",
+  "version": "1.0.0",
+  "description": "A lab project for Node.js, RESTful CRUD APIs with multiple JSON schemas in MongoDB Atlas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "mongoose": "^6.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "author": "David Owopetu",
+  "license": "MIT"
+}

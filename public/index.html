@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggregation Pipeline Demo</title>
+  <style>
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-bottom: 20px;
+    }
+    th, td { 
+      border: 1px solid #ccc; 
+      padding: 8px; 
+      text-align: left;
+    }
+    th { 
+      background-color: #f2f2f2;
+    }
+    section { 
+      margin-bottom: 40px;
+    }
+    pre {
+      background: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #ddd;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Aggregation Pipeline Demo: Users and Products</h1>
+
+  <!-- Create User -->
+  <section>
+    <h2>Create User</h2>
+    <form id="userForm">
+      <input type="text" id="userName" placeholder="User Name" required>
+      <input type="email" id="userEmail" placeholder="User Email" required>
+      <button type="submit">Add User</button>
+    </form>
+    <pre id="userResponse"></pre>
+    <button id="fetchUsers">Fetch All Users</button>
+    <div id="usersTableContainer"></div>
+  </section>
+
+  <!-- Create Product -->
+  <section>
+    <h2>Create Product</h2>
+    <form id="productForm">
+      <input type="text" id="productName" placeholder="Product Name" required>
+      <input type="text" id="productDescription" placeholder="Product Description">
+      <input type="number" id="productPrice" placeholder="Price" required>
+      <!-- Replacing the text input for user ID with a dropdown -->
+      <label for="productUserIdSelect">Select User (Creator): </label>
+      <select id="productUserIdSelect" required>
+        <option value="">Loading users...</option>
+      </select>
+      <button type="submit">Add Product</button>
+    </form>
+    <pre id="productResponse"></pre>
+    <button id="fetchProducts">Fetch All Products</button>
+    <div id="productsTableContainer"></div>
+  </section>
+
+  <!-- Aggregation Endpoint -->
+  <section>
+    <h2>Products with User Info (Aggregation)</h2>
+    <button id="fetchAggregation">Fetch Aggregated Data</button>
+    <pre id="aggregationResult"></pre>
+  </section>
+
+  <script>
+    // Helper function to build a table from an array of objects
+    function buildTable(data, containerId) {
+      if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById(containerId).innerHTML = '<p>No records found.</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      const headerRow = document.createElement('tr');
+      // Create headers from keys of the first object
+      Object.keys(data[0]).forEach(key => {
+        const th = document.createElement('th');
+        th.textContent = key;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+      // Create rows for each record
+      data.forEach(record => {
+        const row = document.createElement('tr');
+        Object.values(record).forEach(value => {
+          const td = document.createElement('td');
+          // If value is an object, stringify it
+          td.textContent = typeof value === 'object' ? JSON.stringify(value) : value;
+          row.appendChild(td);
+        });
+        table.appendChild(row);
+      });
+      document.getElementById(containerId).innerHTML = '';
+      document.getElementById(containerId).appendChild(table);
+    }
+
+    // Populate the user dropdown for product creation
+    async function populateUserDropdown() {
+      try {
+        const res = await fetch('/api/users');
+        const users = await res.json();
+        const select = document.getElementById('productUserIdSelect');
+        // Clear existing options
+        select.innerHTML = '';
+        // Add a default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a User';
+        select.appendChild(defaultOption);
+        // Populate the select with options from the fetched users
+        users.forEach(user => {
+          const option = document.createElement('option');
+          option.value = user._id;
+          option.textContent = `${user.name} (${user.email})`;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Error populating user dropdown:', err);
+        document.getElementById('productUserIdSelect').innerHTML = '<option value="">Error loading users</option>';
+      }
+    }
+
+    // Run populateUserDropdown when the page loads
+    document.addEventListener('DOMContentLoaded', populateUserDropdown);
+
+    // Handle creating a user
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('userName').value;
+      const email = document.getElementById('userEmail').value;
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email })
+        });
+        const data = await res.json();
+        document.getElementById('userResponse').textContent = JSON.stringify(data, null, 2);
+        // Refresh the dropdown list since a new user was added
+        populateUserDropdown();
+      } catch (err) {
+        document.getElementById('userResponse').textContent = 'Error: ' + err;
+      }
+    });
+
+    // Fetch all users and display in a table
+    document.getElementById('fetchUsers').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        buildTable(data, 'usersTableContainer');
+      } catch (err) {
+        document.getElementById('usersTableContainer').textContent = 'Error: ' + err;
+      }
+    });
+
+    // Handle creating a product
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('productName').value;
+      const description = document.getElementById('productDescription').value;
+      const price = parseFloat(document.getElementById('productPrice').value);
+      // Get the selected user id from the dropdown
+      const userId = document.getElementById('productUserIdSelect').value;
+      try {
+        const res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, price, userId })
+        });
+        const data = await res.json();
+        document.getElementById('productResponse').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('productResponse').textContent = 'Error: ' + err;
+      }
+    });
+
+    // Fetch all products and display in a table
+    document.getElementById('fetchProducts').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        buildTable(data, 'productsTableContainer');
+      } catch (err) {
+        document.getElementById('productsTableContainer').textContent = 'Error: ' + err;
+      }
+    });
+
+    // Handle fetching the aggregated data
+    document.getElementById('fetchAggregation').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/products/with-users');
+        const data = await res.json();
+        document.getElementById('aggregationResult').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('aggregationResult').textContent = 'Error: ' + err;
+      }
+    });
+  </script>
+</body>
+</html>
